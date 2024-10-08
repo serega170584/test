@@ -1,0 +1,7 @@
+framework:
+  cache:
+    pools:
+      app_cache:
+        adapter: cache.adapter.array
+        tags: true
+        default_lifetime: 86400

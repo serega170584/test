@@ -1,0 +1,7 @@
+flagception:
+    # Your Features (optional you left it empty)
+    features:
+        is_enabled_generate_virtual_group_for_distr:
+            env: IS_ENABLED_GENERATE_VIRTUAL_GROUP_FOR_DISTR
+            default: false
+

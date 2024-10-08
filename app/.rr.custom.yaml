@@ -1,0 +1,40 @@
+version: "3"
+
+grpc:
+  proto:
+    - "proto/v1/echo.v1.proto"
+    - "proto/v1/ecom.shop_group_service.v1.proto"
+service:
+  app-cache-warmup:
+    command: "php bin/console app:cache:warmup"
+    process_num: 1
+    timeout_stop_sec: 15
+    exec_timeout: 0s
+    remain_after_exit: true
+    service_name_in_log: true
+    restart_sec: 1800
+  consumer-async:
+    command: "php bin/console messenger:consume async --memory-limit=512M"
+    process_num: 1
+    timeout_stop_sec: 15
+    exec_timeout: 0s
+    remain_after_exit: true
+    service_name_in_log: true
+    restart_sec: 1
+
+# metrics:
+#   collect:
+#     shop_group_example_counter:
+#       type: counter
+#       help: "Пример счетчика"
+
+kv:
+  in_memory:
+    driver: memory
+    config:
+      # интервал — интервал (в секундах) между проверками времени жизни значения в кеше
+      # При больших значениях интервала элемент кэша будет реже проверяться на предмет истечения срока его жизни.
+      # Рекомендуется использовать большие значения только в тех случаях, когда кэш используется без значений
+      # срока действия, или в случаях, когда это значение не критично для архитектуры вашего приложения.
+      # Обратите внимание: чем ниже это значение, тем выше нагрузка на систему.
+      interval: 3600

@@ -1,0 +1,54 @@
+version: '3.8'
+
+volumes:
+  composer_cache:
+    driver: local
+
+services:
+  php-cli:
+    image: ${COMPOSE_PROJECT_NAME}_php-cli:${INFRA_VERSION}-local
+    build:
+      dockerfile: infra/images/php8/Dockerfile
+      context: ../../
+      target: local
+      args:
+        - COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME}
+        - CURRENT_UID=${CURRENT_UID}
+        - CURRENT_GID=${CURRENT_GID}
+    user: $CURRENT_UID:$CURRENT_GID
+    environment:
+      - CURRENT_UID=${CURRENT_UID}
+    entrypoint: "php"
+    command: ""
+    volumes:
+      - ../../app:/var/www
+      - ../roadrunner:/tmp/roadrunner # only for merging roadrunner config
+      - composer_cache:/home/professional/.composer
+      - ../images/php8/php.ini:/usr/local/etc/php/php.ini
+    networks:
+      - default
+
+  php-cli-xdebug:
+    image: ${COMPOSE_PROJECT_NAME}_php-cli-xdebug:${INFRA_VERSION}-local
+    build:
+      context: ../../
+      dockerfile: infra/images/php8/Dockerfile
+      target: local-xdebug
+      args:
+        - LOCAL=${COMPOSE_PROJECT_NAME}_php-cli:${INFRA_VERSION}-local
+        - COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME}
+        - CURRENT_UID=${CURRENT_UID}
+        - CURRENT_GID=${CURRENT_GID}
+    user: $CURRENT_UID:$CURRENT_GID
+    environment:
+      - CURRENT_UID=${CURRENT_UID}
+      - PHP_IDE_CONFIG=serverName=${COMPOSE_PROJECT_NAME}
+    volumes:
+      - ../../app:/var/www
+      - composer_cache:/home/professional/.composer
+      - ../images/php8/10-xdebug.ini:/usr/local/etc/php/conf.d/f20-xdebug.ini
+      - ../images/php8/21-xdebug-ip.ini:/usr/local/etc/php/conf.d/f21-xdebug.ini
+      - ../images/php8/php.ini:/usr/local/etc/php/php.ini
+    networks:
+      - default
+

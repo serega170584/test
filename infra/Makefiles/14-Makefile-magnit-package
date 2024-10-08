@@ -1,0 +1,20 @@
+enable-test-package-edit:
+	$(COMPOSE) run -v `pwd`:/tmp-app --rm --entrypoint bash php-cli -i -c "cd /tmp-app && REVERSE=0 php infra/fixPhpServicesBundle.php"
+	rm -rf app/vendor/test/php_services_bundle
+	rm -rf app/php_services_bundle
+	git clone git@gitlab.com:git app/php_services_bundle
+
+disable-test-package-edit:
+	$(COMPOSE) run -v `pwd`:/tmp-app --rm --entrypoint bash php-cli -i -c "cd /tmp-app && REVERSE=1 php infra/fixPhpServicesBundle.php"
+	rm -rf app/vendor/test/php_services_bundle
+	rm -rf app/php_services_bundle
+	$(COMPOSE) run --rm --entrypoint bash php-cli -i -c "composer require test/php_services_bundle"
+
+install-test-package:
+	@mkdir -p app/src/Endpoints
+	@mkdir -p app/src/UseCase
+	@mkdir -p app/proto/v1
+	@touch app/proto/v1/echo.v1.proto
+	make disable-test-package-edit
+	rm -rf app/.rr.dev.yaml
+	rm -rf app/.rr.yaml

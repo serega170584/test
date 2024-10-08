@@ -1,0 +1,42 @@
+replicaCount: 1
+
+env:
+  URL_ADDRESS: "api"
+  URL_CONNECT_TIMEOUT: 10
+  URL_TIMEOUT: 5
+  APP_ENV: prod
+  IS_ENABLED_GENERATE_VIRTUAL_GROUP_FOR_DISTR: true
+
+  MIN_DISTR_IOS_VERSION: 8.12.0
+  MIN_DISTR_ANDROID_VERSION: 8.12.0
+
+migrations:
+  command:
+    - bash
+    - -c
+    - |
+      "make migrate-native"
+
+resources:
+  limits:
+    memory: "1000Mi"
+    cpu: null
+  requests:
+    memory: "500Mi"
+    cpu: "1000m"
+
+cronjobs:
+  - schedule: "0 0 * * *" # utc time!
+    enabled: true
+    name: "url-virtual-groups-import"
+    command:
+      - sh
+      - -c
+      - "exec php bin/console app:url-virtual-groups-import --import_only_virtual_groups"
+    resources:
+      limits:
+        memory: "500Mi"
+        cpu: "200m"
+      requests:
+        memory: "500Mi"
+        cpu: "200m"

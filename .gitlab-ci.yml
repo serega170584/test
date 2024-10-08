@@ -1,0 +1,7 @@
+variables:
+  #should-be-same-like-in-makefile-PROJECT_NAME
+  DEPLOY_DOMAIN: ecom.corp
+  CONTRACT_REPOSITORY: git
+  CONTRACT_PROJECT_ID: 46491174
+
+include: '/infra/gitlab-ci/roadrunner-http-grpc-app-gitlab-ci.yml'

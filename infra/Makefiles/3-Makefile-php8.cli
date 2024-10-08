@@ -1,0 +1,25 @@
+COMPOSE_FILES:=$(COMPOSE_FILES) -f infra/docker-compose/*-php8.cli.yml
+
+HELP:= $(HELP) "make build-images - Build PHP images\n"
+build-images:
+	$(COMPOSE) build php-cli
+	$(COMPOSE) build php-cli-xdebug
+
+HELP:= $(HELP) "make build-images-force - Build PHP images with --no-cache	\n"
+build-images-force:
+	$(COMPOSE) build --no-cache	php-cli
+	$(COMPOSE) build php-cli-xdebug
+
+HELP:=$(HELP) "make bash-xdebug - Run bash into PHP-cli container with xdebug\n"
+bash-xdebug:
+	$(COMPOSE) run --rm -u $(CURRENT_UID) --entrypoint bash php-cli-xdebug -i -c "bash -l"
+
+HELP:=$(HELP) "make bash - Run bash into PHP-cli container\n"
+bash:
+	$(COMPOSE) run --rm --entrypoint bash php-cli -i -c "bash -l"
+
+HELP:=$(HELP) "make ip=host.docker.internal set-xdebug-ip - Set your connectable ip to xdebug.client_host\n"
+set-xdebug-ip:
+	rm -rf infra/images/php8/21-xdebug-ip.ini
+	@echo "setting up IP to infra/images/php8/21-xdebug-ip.ini: "$(ip)"\n"
+	echo "xdebug.client_host="$(ip) > infra/images/php8/21-xdebug-ip.ini

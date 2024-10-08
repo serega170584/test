@@ -1,0 +1,38 @@
+POST localhost:8082/api/v1/get-shop-group-by-shop-id
+Content-Type: application/json
+
+{
+  "UfXmlId": "YOUR_SHOP_XML_ID",
+  "ConsumerCode": "YOUR_CONSUMER_CODE"
+}
+
+###
+#POST http://shop-group-service.uat.k8s.dev.ecom.corp
+POST localhost:8082/echo
+Content-Type: application/json
+Accept: application/json
+
+{
+    "Message": "Hello World!"
+}
+###
+GET http://shop-group.uat.k8s.dev.ecom.corp
+###
+
+
+#POST localhost:8082/api/v1/get-shops-by-group-id
+POST localhost:8082/api/v1/get-shops-by-group-id
+Content-Type: application/json
+Accept: application/json
+
+{
+    "ShopGroupId": 9
+}
+
+####
+
+GRPC shop-group-grpc.uat.k8s.dev.ecom.corp:443/echo.v1.Echo.Echo
+
+{
+    "message": "He!"
+}

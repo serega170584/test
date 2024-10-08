@@ -1,0 +1,112 @@
+image:
+  repository: test
+
+appVersion: ""
+appPort: 8080
+appName: -default-service-name-
+
+grpc:
+  enabled: true
+  port: 8002
+
+ingress:
+  enabled: true
+  custom:
+    enabled: true
+
+istio:
+  httpsRedirect:
+    enabled: false
+  sidecar:
+    enabled: true
+  ingress:
+    enabled: true
+    certs: true
+    custom:
+      enabled: true
+  debugIngress:
+    enabled: true
+    certs: true
+    custom:
+      enabled: true
+  ###
+  grpc:
+    enabled: true
+    certs: true
+    custom:
+      enabled: true
+  ###
+
+# С этого порта rr отдает метрики по любой ручке
+debug:
+  port: 2112
+
+env:
+  #  APP_ENV: prod
+  #  APP_PORT: 8000
+  #  PROBES_PORT: 2114
+  #  METRICS_PORT: 2112
+  RR_DEBUG_MODE_ENABLED: false
+  HTTP_APP_PORT: 8080
+  GRPC_APP_PORT: 8002
+  METRICS_PORT: 2112
+  STATUS_PORT: 2114
+  LOG_LEVEL: debug
+  DATABASE_URL: "postgres"
+  #  TRANSPORT_KAFKA_TOPIC_NAMES=${TRANSPORT_KAFKA_TOPIC_NAMES}
+  #  TRANSPORT_KAFKA_GROUPNAME=${TRANSPORT_KAFKA_GROUPNAME}
+  #  TRANSPORT_KAFKA=${TRANSPORT_KAFKA}
+  #  PHP_IDE_CONFIG=serverName=${COMPOSE_PROJECT_NAME}
+  URL_ADDRESS: "test"
+  URL_CONNECT_TIMEOUT: 10
+  URL_TIMEOUT: 5
+  APP_ENV: prod
+  RPC_APP_PORT: 6001
+  IS_ENABLED_GENERATE_VIRTUAL_GROUP_FOR_DISTR: true
+
+  MIN_DISTR_IOS_VERSION: 100.0.0
+  MIN_DISTR_ANDROID_VERSION: 100.0.0
+
+migrations:
+  enabled: true
+  command:
+    - bash
+    - -c
+    - |
+      "make migrate-native"
+  resources:
+    limits:
+      memory: "500Mi"
+      cpu: "100m"
+    requests:
+      memory: "500Mi"
+      cpu: "100m"
+
+#resources:
+#  limits:
+#    memory: "500Mi"
+#    cpu: null
+#  requests:
+#    memory: "500Mi"
+#    cpu: "500m"
+
+livenessProbe:
+  httpGet:
+    path: /ready?plugin=http
+    port: 2114
+
+readinessProbe:
+  httpGet:
+    path: /ready?plugin=http
+    port: 2114
+
+startupProbe:
+  httpGet:
+    path: /ready?plugin=http
+    port: 2114
+
+#redis:
+#  enabled: true
+#  global:
+#    imageRegistry: "harbor.dev.ecom.corp/dockerhub"
+

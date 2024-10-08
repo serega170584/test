@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  rr:
+    image: ${COMPOSE_PROJECT_NAME}_php-cli:${INFRA_VERSION}-local
+    environment:
+      - RR_DEBUG_MODE_ENABLED=true
+      - HTTP_APP_PORT=8080
+      - GRPC_APP_PORT=8002
+      - METRICS_PORT=2112
+      - STATUS_PORT=2114
+      - RPC_APP_PORT=6001
+      - TRANSPORT_KAFKA_TOPIC_NAMES=${TRANSPORT_KAFKA_TOPIC_NAMES}
+      - TRANSPORT_KAFKA_GROUPNAME=${TRANSPORT_KAFKA_GROUPNAME}
+      - TRANSPORT_KAFKA=${TRANSPORT_KAFKA}
+      - PHP_IDE_CONFIG=serverName=${COMPOSE_PROJECT_NAME}
+    hostname: ${COMPOSE_PROJECT_NAME}-rr
+    entrypoint: [ "bash", "-c", "rr serve -d -c /var/www/.rr.yaml --debug -w /var/www" ]
+    user: $CURRENT_UID:$CURRENT_GID
+    ports:
+      - ${HTTP_APP_PORT}:8080
+      - ${GRPC_APP_PORT}:8002
+      - ${METRICS_PORT}:2112
+      - ${STATUS_PORT}:2114
+      - ${RPC_APP_PORT}:6001
+    volumes:
+      - ../../app:/var/www
+      - ../images/php8/php.ini:/usr/local/etc/php/php.ini
+    expose:
+      - "${HTTP_APP_PORT}"
+      - "${GRPC_APP_PORT}"
+      - "${METRICS_PORT}"
+      - "${STATUS_PORT}"
+    networks:
+      - default
+
+  rr-xdebug:
+    extends:
+      service: rr
+    image: ${COMPOSE_PROJECT_NAME}_php-cli-xdebug:${INFRA_VERSION}-local
+    volumes:
+      - ../../app:/var/www
+      - ../images/php8/10-xdebug.ini:/usr/local/etc/php/conf.d/f20-xdebug.ini
+      - ../images/php8/21-xdebug-ip.ini:/usr/local/etc/php/conf.d/f21-xdebug.ini
+      - ../images/php8/php.ini:/usr/local/etc/php/php.ini
+    networks:
+      - default

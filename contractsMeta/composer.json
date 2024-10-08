@@ -1,0 +1,20 @@
+{
+  "name": "test/shop-group-service-contracts",
+  "description": "Shop groups service contracts",
+  "type": "library",
+  "minimum-stability": "stable",
+  "authors": [
+    {
+      "name": "Krivobokov Sergey",
+      "email": "serega170584@gmail.com"
+    }
+  ],
+  "autoload": {
+    "psr-4": {
+      "test\\ShopGroups\\": "php/ShopGroups/"
+    }
+  },
+  "require": {
+    "grpc/grpc": "^1.5"
+  }
+}

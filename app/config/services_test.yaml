@@ -1,0 +1,21 @@
+services:
+
+  test.busManager:
+    alias: App\Bus\BusManager
+    public: true
+
+  test.url.client:
+    alias: url.client
+    public: true
+
+  test.feature_toggle_service:
+    alias: App\Service\FeatureToggleService
+    public: true
+
+  App\Repository\InMemoryFailedMessagesRepository:
+    arguments:
+      $failedTransport: '@messenger.transport.failed'
+
+  App\Repository\FailedMessagesRepository: '@App\Repository\InMemoryFailedMessagesRepository'
+
+  Test\PhpServicesBundle\Cache\Cache: '@Test\PhpServicesBundle\Cache\EmptyCache'

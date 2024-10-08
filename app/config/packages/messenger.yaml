@@ -1,0 +1,32 @@
+framework:
+    messenger:
+        default_bus: messenger.bus.commands
+        failure_transport: failed
+
+        transports:
+            sync: 'sync://'
+            async:
+                dsn: '%env(MESSENGER_TRANSPORT_DSN)%'
+                options:
+                    use_notify: true
+                    check_delayed_interval: 60000
+                retry_strategy:
+                    max_retries: 3
+                    multiplier: 2
+            failed: '%env(MESSENGER_FAILED_DSN)%'
+
+        buses:
+            messenger.bus.commands:
+                default_middleware: false
+                middleware:
+                    - test_metrics_middleware
+                    - send_message
+                    - handle_message
+                    - failed_message_processing_middleware
+
+            messenger.bus.queries:
+                default_middleware: false
+                middleware:
+                    - handle_message
+                    - failed_message_processing_middleware
+

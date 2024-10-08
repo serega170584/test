@@ -1,0 +1,45 @@
+#REDIS_PORT:=$(shell echo ${PORT_NUMBER_MODIFIER}+6379 | bc)
+#VARIABLES:=$(VARIABLES) REDIS_PORT=$(REDIS_PORT)
+#OPEN_PORTS:=$(OPEN_PORTS)"REDIS_PORT: $(REDIS_PORT)\n"
+
+COMPOSE_FILES:=$(COMPOSE_FILES) -f infra/docker-compose/*-grafana-prom.yml
+
+HELP:= $(HELP) "make up-grafana - start grafana and prometheus containers\n"
+
+up-grafana:
+	$(COMPOSE) up -d grafana prometheus cadvisor node-exporter alertmanager
+
+down-grafana:
+	$(COMPOSE) down grafana prometheus cadvisor node-exporter alertmanager
+
+#grafana-bash:
+#	@$(COMPOSE) run --rm --entrypoint bash grafana -i -c "sh"
+
+generate-prom-scrappers-config:
+	mkdir -p projectSpecifiedFiles
+	rm -rf projectSpecifiedFiles/prometheus.yml
+	cp infra/docker-compose/grafana/configs/prometheus/prometheus-sample.yml projectSpecifiedFiles/prometheus.yml
+	echo -e "\n\
+  - job_name: 'rr-grpc'\n\
+    static_configs:\n\
+      - targets: [ 'rr-grpc:2112' ]\n\
+        labels:\n\
+          container: 'rr-grpc'" >> projectSpecifiedFiles/prometheus.yml
+	echo -e "\n\
+  - job_name: 'rr-grpc-xdebug'\n\
+    static_configs:\n\
+      - targets: [ 'rr-grpc-xdebug:2112' ]\n\
+        labels:\n\
+          container: 'rr-grpc-xdebug'" >> projectSpecifiedFiles/prometheus.yml
+	echo -e "\n\
+  - job_name: 'rr-http'\n\
+    static_configs:\n\
+      - targets: [ 'rr-http:2112' ]\n\
+        labels:\n\
+          container: 'rr-http'" >> projectSpecifiedFiles/prometheus.yml
+	echo -e "\n\
+  - job_name: 'rr-http-xdebug'\n\
+    static_configs:\n\
+      - targets: [ 'rr-http-xdebug:2112' ]\n\
+        labels:\n\
+          container: 'rr-http-xdebug'" >> projectSpecifiedFiles/prometheus.yml

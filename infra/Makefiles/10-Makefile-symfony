@@ -1,0 +1,240 @@
+HELP:= $(HELP) "make install-symfony-web-skeleton - Install symfony/skeleton\n"
+install-symfony-skeleton:
+	make remove-symfony-files
+	$(COMPOSE) run --rm --entrypoint bash php-cli -i -c "composer create-project --no-interaction symfony/skeleton:\"6.2.*\" symfony"
+	@mv app/symfony/bin app/bin
+	@mv app/symfony/config app/config
+	@mv app/symfony/public app/public
+	@mv app/symfony/src app/src
+	@mv app/symfony/var app/var
+	@mv app/symfony/vendor app/vendor
+	@mv app/symfony/.env app/.env
+	@mv app/symfony/.gitignore app/.gitignore
+	@mv app/symfony/composer.json app/composer.json
+	@mv app/symfony/composer.lock app/composer.lock
+	@mv app/symfony/symfony.lock app/symfony.lock
+	@rm -rf app/symfony
+	echo "proto-vendor/*" > .gitignore
+	echo "go_generated" >> .gitignore
+	echo ".idea/*" >> .gitignore
+	echo "auth.json" >> app/.gitignore
+
+HELP:= $(HELP) "make service-create - Create service\n"
+HELP:= $(HELP) "    USAGE: make GITLAB_ACCESS_TOKEN=itisMyPerfectToken GO_NAMESPACE=my_perfect_namespace PHP_NAMESPACE=MyPerfectNamespace service-create\n"
+service-create:
+	make build-images
+	make install-framework
+	echo "{" > app/auth.json
+	echo '"gitlab-token": {' >> app/auth.json
+	echo '"gitlab.platform.corp": "'$(GITLAB_ACCESS_TOKEN)'"'>> app/auth.json
+	echo "}" >> app/auth.json
+	echo "}" >> app/auth.json
+	make install-test-package
+	make GO_NAMESPACE=$(GO_NAMESPACE) PHP_NAMESPACE=$(PHP_NAMESPACE) create-default-echo-service
+	make create-rr-custom
+	PHP_NAMESPACE=$(PHP_NAMESPACE) php infra/addNamespaceToComposerJson.php
+	@$(COMPOSE) run --rm --entrypoint bash php-cli -i -c "composer dump-autoload"
+	make generate-sdk
+	echo .rr.yaml >> app/.gitignore
+	make rm-custom-compose
+	make custom-stan-rules
+	make custom-cs-rules
+	make enable-api-doc-http-endpoint
+
+enable-api-doc-http-endpoint:
+	echo "app.swagger_ui:" > app/config/routes/nelmio_api_doc.yaml
+	echo "    path: /api/doc" >> app/config/routes/nelmio_api_doc.yaml
+	echo "    methods: GET" >> app/config/routes/nelmio_api_doc.yaml
+	echo "    defaults: { _controller: nelmio_api_doc.controller.swagger_ui }" >> app/config/routes/nelmio_api_doc.yaml
+
+	echo "app.swagger:" >> app/config/routes/nelmio_api_doc.yaml
+	echo "    path: /api/doc.json" >> app/config/routes/nelmio_api_doc.yaml
+	echo "    methods: GET" >> app/config/routes/nelmio_api_doc.yaml
+	echo "    defaults: { _controller: nelmio_api_doc.controller.swagger }" >> app/config/routes/nelmio_api_doc.yaml
+
+	echo "nelmio_api_doc:" > app/config/packages/nelmio_api_doc.yaml
+	echo "    documentation:" >> app/config/packages/nelmio_api_doc.yaml
+	echo "        info:" >> app/config/packages/nelmio_api_doc.yaml
+	echo "            title: $(PROJECT_NAME)" >> app/config/packages/nelmio_api_doc.yaml
+	echo "            description: This is an awesome app!" >> app/config/packages/nelmio_api_doc.yaml
+	echo "            version: 1.0.0" >> app/config/packages/nelmio_api_doc.yaml
+	echo "    areas: # to filter documented areas" >> app/config/packages/nelmio_api_doc.yaml
+	echo "        path_patterns:" >> app/config/packages/nelmio_api_doc.yaml
+	echo "            - ^/api/v.*" >> app/config/packages/nelmio_api_doc.yaml
+
+
+custom-cs-rules:
+	echo "<?php" > app/.php-cs-fixer.dist.php
+	echo "\$$finder = (new PhpCsFixer\Finder())->in(__DIR__ . '/src')->exclude(['var', 'Bus', 'phpGenerated']);" >> app/.php-cs-fixer.dist.php
+	echo "return (new PhpCsFixer\Config())->setRules(['@Symfony' => true,])->setFinder(\$$finder);" >> app/.php-cs-fixer.dist.php
+
+custom-stan-rules:
+	echo 'parameters:' > app/phpstan.neon
+	echo "    level: 5" >> app/phpstan.neon
+	echo "    parallel:" >> app/phpstan.neon
+	echo "        maximumNumberOfProcesses: 3" >> app/phpstan.neon
+	echo "    scanDirectories:" >> app/phpstan.neon
+	echo "      - vendor" >> app/phpstan.neon
+	echo "    ignoreErrors:" >> app/phpstan.neon
+	echo "        - '#Call to an undefined method Symfony\\Contracts\\Cache\\TagAwareCacheInterface::getItem#'" >> app/phpstan.neon
+	echo "        - '#Call to an undefined method Symfony\\Contracts\\Cache\\TagAwareCacheInterface::save#'" >> app/phpstan.neon
+
+rm-custom-compose:
+	rm -rf app/docker-compose.yml
+	rm -rf app/docker-compose.override.yml
+
+create-default-echo-service:
+	mkdir -p app/proto/v1
+	echo 'syntax = "proto3";' > app/proto/v1/echo.v1.proto
+
+	echo 'package echo.v1;' >> app/proto/v1/echo.v1.proto
+	echo 'option go_package="/$(GO_NAMESPACE)_v1";' >> app/proto/v1/echo.v1.proto
+
+	echo 'option php_namespace = "$(PHP_NAMESPACE)\\EchoService\\v1";' >> app/proto/v1/echo.v1.proto
+	echo 'option php_metadata_namespace = "$(PHP_NAMESPACE)\\EchoService\\v1\\Meta";' >> app/proto/v1/echo.v1.proto
+
+	echo 'service EchoService {' >> app/proto/v1/echo.v1.proto
+	echo '  rpc EchoMethod (EchoRequest) returns (EchoResponse) {}' >> app/proto/v1/echo.v1.proto
+	echo '}' >> app/proto/v1/echo.v1.proto
+
+	echo 'message EchoRequest {' >> app/proto/v1/echo.v1.proto
+	echo '  string Message = 1;' >> app/proto/v1/echo.v1.proto
+	echo '}' >> app/proto/v1/echo.v1.proto
+
+	echo 'message EchoResponse {' >> app/proto/v1/echo.v1.proto
+	echo '  string Message = 1;' >> app/proto/v1/echo.v1.proto
+	echo '}' >> app/proto/v1/echo.v1.proto
+
+create-rr-custom:
+	echo "version: '3'" > app/.rr.custom.yaml
+	echo "grpc:" >> app/.rr.custom.yaml
+	echo "  proto:">> app/.rr.custom.yaml
+	echo "    - \"proto/v1/echo.v1.proto\"">> app/.rr.custom.yaml
+
+install-framework:
+	make install-symfony-skeleton
+	make add-webapp
+
+install-php-services-bundle:
+	$(COMPOSE) run --rm --entrypoint bash php-cli -i -c "composer require test/php-services-bundle"
+
+add-webapp:
+	$(COMPOSE) run --rm --entrypoint bash php-cli -i -c "composer require --no-interaction webapp"
+
+re-install-symfony-web:
+	make re-install-symfony-grpc-app
+	make add-webapp
+
+install-symfony-web:
+	make install-symfony-grpc-app
+	make add-webapp
+
+#install-symfony-grpc-app:
+#	make install-symfony-skeleton
+#	$(COMPOSE) run --rm --entrypoint bash php-cli -i -c "composer require baldinof/roadrunner-bundle"
+#	$(COMPOSE) run --rm --entrypoint bash php-cli -i -c "composer require spiral/roadrunner-grpc"
+#	$(COMPOSE) run --rm --entrypoint bash php-cli -i -c "composer require symfony/validator"
+#	## //TODO add packages for grpc
+
+re-install-symfony-grpc-app:
+	make remove-symfony-files
+	make install-symfony-grpc-app
+
+remove-symfony-files:
+	@rm -rf app/bin
+	@rm -rf app/symfony
+	@rm -rf app/config
+	@rm -rf app/public
+	@rm -rf app/src
+	@rm -rf app/var
+	@rm -rf app/vendor
+	@rm -rf app/env
+	@rm -rf app/.gitignore
+	@rm -rf app/composer.json
+	@rm -rf app/composer.lock
+	@rm -rf app/symfony.lock
+	@rm -rf app/migrations
+	@rm -rf app/templates
+	@rm -rf app/tests
+	@rm -rf app/translations
+	@rm -rf app/.env.test
+	@rm -rf app/phpunit.xml.dist
+
+cache-clear:
+	@$(COMPOSE) run --rm --entrypoint bash php-cli -i -c "bin/console cache:clear"
+
+migrate-native:
+	bin/console doctrine:migrations:migrate -n
+
+drop-migrate-seed-native:
+	bin/console doctrine:schema:drop --full-database --force
+	bin/console doctrine:migrations:migrate -n
+	bin/console doctrine:fixtures:load -n
+
+migrate-fresh-and-seed:
+	make drop-db-migrations
+	make migrate
+	make db-seed
+
+HELP:= $(HELP) "make migrate-and-seed - Run migrations and seed test data \n"
+migrate-and-seed:
+	make migrate
+	make db-seed
+
+migrate-fresh:
+	make drop-db-migrations
+	make migrate
+
+prepare:
+	make up-test-db
+	@$(COMPOSE) run --rm --entrypoint bash php-cli -i -c "bin/console cache:clear -e test && vendor/bin/phpunit" && make down-test-db
+	@$(COMPOSE) run --rm --entrypoint bash php-cli -i -c "vendor/bin/phpstan analyse src"
+	make fix-cs
+
+fix-cs:
+	@$(COMPOSE) run --rm --entrypoint bash php-cli -i -c "vendor/bin/php-cs-fixer fix"
+
+drop-db-migrations:
+	@$(COMPOSE) run --rm --entrypoint bash php-cli -i -c "bin/console doctrine:schema:drop --full-database --force"
+
+@HELP:= $(HELP) "make migrate - Run migrations\n"
+migrate:
+	@$(COMPOSE) run --rm --entrypoint bash php-cli -i -c "bin/console doctrine:migrations:migrate -n"
+
+@HELP:= $(HELP) "make db-seed - Seed test data\n"
+db-seed:
+	@$(COMPOSE) run --rm --entrypoint bash php-cli -i -c "bin/console doctrine:fixtures:load -n"
+
+generate-migrations:
+	@$(COMPOSE) run --rm --entrypoint bash php-cli -i -c "bin/console doctrine:migrations:diff"
+
+generate-empty-migration:
+	@$(COMPOSE) run --rm --entrypoint bash php-cli -i -c "bin/console doctrine:migrations:generate -n"
+
+#migrate:
+	#$(COMPOSE) run --rm -u $(CURRENT_UID) --entrypoint bash php-composer -c "php artisan migrate --force"
+#
+#migrate-fresh:
+#	$(COMPOSE) run --rm -u $(CURRENT_UID) --entrypoint bash php-composer -c "php artisan migrate:fresh --force"
+#
+#db-seed:
+#	$(COMPOSE) run --rm -u $(CURRENT_UID) --entrypoint bash php-composer -c "php artisan db:seed"
+#
+#up-horizon:
+#	$(COMPOSE) run -u $(CURRENT_UID) --entrypoint bash php-cli -c "php artisan horizon"
+#
+#prepare:
+#	make larastan
+#	make fix-ide-helper
+#	make fix-cs
+#
+#larastan:
+#	$(COMPOSE) run --rm -u $(CURRENT_UID) --entrypoint bash php-cli -c "php /var/www/vendor/bin/phpstan analyse"
+#
+#fix-cs:
+#	$(COMPOSE) run --rm -u $(CURRENT_UID) --entrypoint bash php-cli -c "php artisan fixer:fix --config .php_cs.laravel.php"
+#
+#fix-ide-helper:
+#	$(COMPOSE) run --rm -u $(CURRENT_UID) --entrypoint bash php-cli -c "php artisan ide-helper:generate"
+#	$(COMPOSE) run --rm -u $(CURRENT_UID) --entrypoint bash php-cli -c "php artisan ide-helper:meta"
+#	$(COMPOSE) run --rm -u $(CURRENT_UID) --entrypoint bash php-cli -c "php artisan ide-helper:models -W"

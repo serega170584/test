@@ -1,0 +1,68 @@
+ShopGroups\EchoService\v1\EchoRequest:
+  properties:
+    Message:
+      - Length:
+          min: 10
+          max: 50
+          minMessage: 'Message cannot be less than {{ limit }} characters long'
+          maxMessage: 'Message cannot be longer than {{ limit }} characters'
+
+ShopGroups\Shops\v1\GetConsumerShopsRequest:
+  properties:
+    ConsumerCode:
+      - Type: string
+      - NotBlank:
+          message: 'ConsumerCode should not be blank.'
+
+ShopGroups\Shops\v1\GetShopGroupByShopCodeRequest:
+  properties:
+    ConsumerCode:
+      - Type: string
+      - NotBlank:
+          message: 'ConsumerCode should not be blank.'
+    UfXmlId:
+      - Type: string
+      - NotBlank:
+          message: 'UfXmlId should not be blank.'
+
+ShopGroups\Shops\v1\GetShopGroupByFiasIdRequest:
+  properties:
+    ConsumerCode:
+      - Type: string
+    ConsumerVersion:
+      - Type: string
+      - Regex: '/^\d+\.\d+\.\d+$/'
+    FiasId:
+      - Type: string
+      - NotBlank:
+          message: 'FiasId should not be blank.'
+      - Uuid: ~
+
+ShopGroups\Shops\v1\GetShopGroupsRequest:
+  properties:
+    consumerCode:
+      - Type: string
+    shopGroupCodes:
+      - All:
+          - Type: string
+          - NotBlank:
+              message: 'shopGroupCodes item should not be blank'
+    fiasIds:
+      - All:
+          - Type: string
+          - NotBlank:
+              message: 'fiasIds item should not be blank'
+
+ShopGroups\Shops\v1\GetShopsRequest:
+  properties:
+    shopGroupCode:
+      - Type: string
+      - NotBlank:
+          message: 'shopGroupCode should not be blank'
+
+ShopGroups\Shops\v1\GetShopGroupByShopGroupCodeRequest:
+  properties:
+    shopGroupCode:
+      - Type: string
+      - NotBlank:
+          message: 'shop group code should not be blank.'

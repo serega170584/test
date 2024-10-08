@@ -1,0 +1,179 @@
+syntax = "proto3";
+
+package ecom.shop_group_service.v1;
+option go_package = "/shop_groups_contracts_v1";
+
+option php_namespace = "ShopGroups\\Shops\\v1";
+option php_metadata_namespace = "ShopGroups\\Shops\\v1\\Meta";
+
+import "google/protobuf/wrappers.proto";
+
+service ShopGroup {
+  rpc GetShopGroupByShopCode(GetShopGroupByShopCodeRequest) returns (GetShopGroupByShopCodeResponse) {}
+
+  rpc GetShopGroupByFiasId(GetShopGroupByFiasIdRequest) returns (GetShopGroupByFiasIdResponse) {}
+
+  rpc GetConsumerShops(GetConsumerShopsRequest) returns (ShopGroupsResponse) {}
+
+  rpc Export(ExportRequest) returns (stream ExportResponse) {}
+
+  rpc ImportFile(ImportFileRequest) returns (ImportFileResponse) {}
+
+  rpc GenerateVirtualGroups(GenerateVirtualGroupsRequest) returns (GenerateVirtualGroupsResponse) {}
+
+  rpc ProcessFailedMessages(ProcessFailedMessagesRequest) returns (ProcessFailedMessagesResponse) {}
+
+  rpc GetFailedMessages(GetFailedMessagesRequest) returns (GetFailedMessagesResponse) {}
+
+  rpc GetShopGroups(GetShopGroupsRequest) returns (GetShopGroupsResponse) {}
+
+  rpc GetAllShopGroups(GetAllShopGroupsRequest) returns (GetAllShopGroupsResponse) {}
+
+  rpc GetShops(GetShopsRequest) returns (GetShopsResponse) {}
+
+  rpc GetShopGroupByShopGroupCode(GetShopGroupByShopGroupCodeRequest) returns (GetShopGroupByShopGroupCodeResponse) {}
+}
+
+message GetShopGroupByShopCodeRequest {
+  string UfXmlId = 1;
+  string ConsumerCode = 2;
+  string ConsumerVersion = 3;
+}
+
+message GetShopGroupByShopCodeResponse {
+  string ShopGroupCode = 1;
+  string Title = 2;
+}
+
+message GetShopGroupByFiasIdRequest {
+  string FiasId = 1;
+  string ConsumerCode = 2;
+  string ConsumerVersion = 3;
+}
+
+message GetShopGroupByFiasIdResponse {
+  enum ERR_INFO_REASON {
+    UNSPECIFIED = 0;
+    VALIDATION_ERROR = 1;
+    NOT_FOUND_ERROR = 2;
+  }
+
+  string ShopGroupCode = 1;
+  string Title = 2;
+}
+
+message GetConsumerShopsRequest {
+  string ConsumerCode = 1;
+  string ShopGroupCode = 2;
+  bool Recursive = 3;
+}
+
+message ShopGroupItem {
+  string Code = 1;
+  repeated string ShopsCodes = 2;
+}
+
+message ShopGroupsResponse{
+  repeated ShopGroupItem Items = 1;
+}
+
+message ImportFileRequest {
+  string ShopGroups = 1;
+  string Consumers = 2;
+  string ShopsToShopGroups = 3;
+}
+
+message ImportFileResponse {
+
+}
+
+message ExportRequest {
+}
+
+message ExportResponse {
+  string ShopGroups = 1;
+  string Consumers = 2;
+  string ShopsToShopGroups = 3;
+}
+
+message GenerateVirtualGroupsRequest {
+  bool IsImportOnlyVirtualGroups = 1;
+}
+
+message GenerateVirtualGroupsResponse {
+}
+
+message ProcessFailedMessagesRequest {
+  int32 LimitCount = 1;
+  int32 LimitTime = 2;
+}
+
+message ProcessFailedMessagesResponse {
+}
+
+message GetFailedMessagesRequest {
+}
+
+message GetFailedMessagesResponse {
+  // Int32Value используется, что Google Protobuf не затирал нулевые значения
+  google.protobuf.Int32Value CountRemaining = 1;
+}
+
+message ShopGroupModel {
+  string code = 1;
+  string fiasId = 2;
+}
+
+message ShopModel {
+  string code = 1;
+}
+
+message GetShopGroupsRequest{
+  string consumerCode = 1;
+  repeated string shopGroupCodes = 2;
+  repeated string fiasIds = 3;
+  string consumerVersion = 4;
+}
+
+message GetShopGroupsResponse {
+  repeated ShopGroupModel items = 1;
+}
+
+message GetAllShopGroupsRequest{
+  bool isShopGroupActive = 1;
+  string lastShopGroupCode = 2;
+  int32 limit = 3;
+}
+
+message GetAllShopGroupsResponse {
+  repeated AllShopGroup items = 1;
+}
+
+message AllShopGroup {
+  string code = 1;
+  bool isActive = 2;
+  bool isDistr = 3;
+  repeated string shopCodes = 4;
+}
+
+message GetShopsRequest{
+  string shopGroupCode = 1;
+}
+
+message GetShopsResponse {
+  repeated ShopModel items = 1;
+}
+
+message GetShopGroupByShopGroupCodeRequest {
+  string shopGroupCode = 1;
+}
+
+message GetShopGroupByShopGroupCodeResponse {
+  ShopGroupModel item = 1;
+
+  enum ERR_INFO_REASON {
+    UNSPECIFIED = 0;
+    VALIDATION_ERROR = 1;
+    NOT_FOUND_ERROR = 2;
+  }
+}

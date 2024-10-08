@@ -1,0 +1,17 @@
+nelmio_api_doc:
+    documentation:
+        servers:
+            - url: http://localhost:8082
+            - url: https://shop-group.k8s.dev.ecom.corp
+            - url: http://shop-group.k8s.dev.ecom.corp
+            - url: https://shop-group.k8s.uat.ecom.corp
+            - url: http://shop-group.k8s.uat.ecom.corp
+            - url: https://shop-group.k8s.prod.ecom.corp
+            - url: http://shop-group.k8s.prod.ecom.corp
+        info:
+            title: Shop Group Service
+            description: Service manages shop groups
+            version: 1.0.0
+    areas: # to filter documented areas
+        path_patterns:
+            - ^/api/v.* # it is hardcoded :( \Test\PhpServicesBundle\DependencyInjection\routesDefinition

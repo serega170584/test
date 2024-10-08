@@ -1,0 +1,60 @@
+replicaCount: 1
+
+env:
+  DATABASE_URL: "postgres"
+  APP_ENV: dev
+
+migrations:
+  enabled: true
+  command:
+    - bash
+    - -c
+    - |
+      "make drop-migrate-seed-native"
+  resources:
+    limits:
+      memory: "500Mi"
+      cpu: "100m"
+    requests:
+      memory: "500Mi"
+      cpu: "100m"
+
+resources:
+  limits:
+    memory: "500Mi"
+    cpu: null
+  requests:
+    memory: "500Mi"
+    cpu: "500m"
+
+postgresql:
+  enabled: true
+  auth:
+    enablePostgresUser: false
+    username: "[STORE_IN_VAULT]"
+    password: "[STORE_IN_VAULT]"
+    database: "[STORE_IN_VAULT]"
+  global:
+    imageRegistry: "hub"
+  primary:
+    service:
+      type: ClusterIP
+    persistence:
+      enabled: false
+      storageClass: "yc-network-ssd"
+
+cronjobs:
+  - schedule: "0 0 * * *" # utc time!
+    enabled: true
+    name: "url-virtual-groups-import"
+    command:
+      - sh
+      - -c
+      - "exec php bin/console app:url-virtual-groups-import"
+    resources:
+      limits:
+        memory: "500Mi"
+        cpu: "200m"
+      requests:
+        memory: "500Mi"
+        cpu: "200m"

@@ -1,0 +1,10 @@
+###
+
+# curl -X 'GET'
+#  'http://localhost:8082/api/v1/export'
+#  -H 'accept: application/json'
+GET https://shop-group.k8s.prod.ecom.corp/api/v1/export
+accept: application/json
+
+###
+

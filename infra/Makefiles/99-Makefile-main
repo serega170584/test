@@ -1,0 +1,35 @@
+PROJECT_SOURCE_PREFIX:='src'
+VARIABLES:= $(VARIABLES) COMPOSE_PROJECT_NAME=$(PROJECT_NAME) PROJECT_SOURCE_PREFIX=$(PROJECT_SOURCE_PREFIX) CURRENT_UID=$(CURRENT_UID) CURRENT_GID=$(CURRENT_GID) IMAGE_VERSION=$(IMAGE_VERSION)
+
+COMPOSE:=$(VARIABLES) && $(DOCKER_COMPOSE_EXECUTABLE) $(COMPOSE_FILES)
+
+help:
+	@echo -e $(HELP)
+
+show-ports:
+	@echo "This command shows ports, which are opened on your host machine."
+	@echo -e $(OPEN_PORTS)
+
+build:
+	$(COMPOSE) build
+
+down:
+	$(COMPOSE) down --remove-orphans
+
+logs:
+	$(COMPOSE) logs
+
+logs-follow:
+	$(COMPOSE) logs -f
+
+#gitlab-tests:
+#	gitlab-runner exec docker --docker-pull-policy never --docker-volumes /var/run/docker.sock:/var/run/docker.sock Unit-Tests
+#
+#gitlab-push-contracts:
+#	gitlab-runner exec docker --docker-pull-policy never --docker-volumes /var/run/docker.sock:/var/run/docker.sock PhpClientCreate
+#
+#gitlab-build-test-container:
+#	gitlab-runner exec docker --env REGISTRY_DEPLOY_TOKEN=jzayWFLEGLHQUozpNR-j --docker-pull-policy never Build-Test-Container
+#
+#gitlab-push-docker:
+#	gitlab-runner exec docker --docker-pull-policy never --docker-volumes /var/run/docker.sock:/var/run/docker.sock PackInfra

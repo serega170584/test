@@ -1,0 +1,3 @@
+go_generated -diff
+app/phpGenerated -diff
+app/src/Bus -diff

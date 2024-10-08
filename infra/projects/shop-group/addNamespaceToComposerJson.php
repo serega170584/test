@@ -1,0 +1,1 @@
+../../addNamespaceToComposerJson.php

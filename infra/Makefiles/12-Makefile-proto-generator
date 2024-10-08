@@ -1,0 +1,49 @@
+gen2:
+	@mkdir -p proto-vendor
+	@#cd proto-vendor && if cd googleapis; then git fetch; git checkout master; git pull --rebase; else git clone https://github.com/googleapis/googleapis.git googleapis; cd googleapis; git checkout master; fi
+	@rm -rf go_generated
+	@rm -rf app/phpGenerated/*
+	@mkdir -p go_generated
+	@mkdir -p app/phpGenerated
+	protoc \
+	--proto_path=app/proto \
+	--proto_path=proto-vendor/googleapis \
+	--php_out=app/phpGenerated \
+	--php-grpc_out=app/phpGenerated \
+	--plugin=protoc-gen-php-grpc=/usr/local/go/bin/protoc-gen-php-grpc \
+	--grpc_out=app/phpGenerated \
+	--plugin=protoc-gen-grpc=/usr/local/go/bin/grpc_php_plugin \
+	--go_out=paths=source_relative:go_generated \
+	--go-grpc_out=paths=source_relative:go_generated \
+	$$(find app/proto -name '*.proto' | tr '\n' ' ');
+#	--descriptor_set_out=myservice.protoset \
+#	--include_imports \
+
+generate-grafana-dashes:
+	#local
+	$(COMPOSE) run --rm --entrypoint bash php-cli -i -c "bin/console app:generate-grafana --containers=rr,rr-xdebug --boardName=$(PROJECT_NAME)-LocalBoard --instances=rr:2112,rr-xdebug:2112"
+	#dev
+	$(COMPOSE) run --rm --entrypoint bash php-cli -i -c "bin/console app:generate-grafana --containers=rr,rr-xdebug --boardName=$(PROJECT_NAME)-DevBoard --instances=rr:2112,rr-xdebug:2112"
+	#uat
+	$(COMPOSE) run --rm --entrypoint bash php-cli -i -c "bin/console app:generate-grafana --containers=rr,rr-xdebug --boardName=$(PROJECT_NAME)-UatBoard --instances=rr:2112,rr-xdebug:2112"
+	#prod
+	$(COMPOSE) run --rm --entrypoint bash php-cli -i -c "bin/console app:generate-grafana --containers=rr,rr-xdebug --boardName=$(PROJECT_NAME)-ProdBoard --instances=rr:2112,rr-xdebug:2112"
+
+	rm -rf infraCommitted/grafanaDashboards/customBoards
+	mv app/grafana infraCommitted/grafanaDashboards/customBoards
+
+HELP:=$(HELP) "make generate-sdk - Generate code from protofiles\n"
+generate-sdk:
+	docker run --entrypoint sh -v `pwd`:/var/www local/protoc -c "make gen2"
+	$(COMPOSE) run --rm --entrypoint bash php-cli -i -c "rm -rf /var/www/var/cache/dev"
+	$(COMPOSE) run --rm --entrypoint bash php-cli -i -c "bin/console app:create-interfaces"
+	$(COMPOSE) run --rm --entrypoint bash php-cli -i -c "bin/console app:create-bus-manager"
+	$(COMPOSE) run --rm --entrypoint bash php-cli -i -c "bin/console app:create-oa-docs"
+	$(COMPOSE) run --rm --entrypoint bash php-cli -i -c "bin/console app:generate-php-client-exceptions"
+	$(COMPOSE) run --rm --entrypoint bash php-cli -i -c "bin/console app:generate-php-clients"
+	make fix-cs
+	$(COMPOSE) run --rm --entrypoint bash php-cli -i -c "bin/console cache:clear"
+
+HELP:=$(HELP) "make build-generator - Build docker image for proto generator\n"
+build-generator:
+	docker build -t local/protoc -f infra/images/proto-builder/Dockerfile infra/images/proto-builder

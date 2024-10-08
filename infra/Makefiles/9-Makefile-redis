@@ -1,0 +1,9 @@
+REDIS_PORT:=$(shell echo ${PORT_NUMBER_MODIFIER}+6379 | bc)
+VARIABLES:=$(VARIABLES) REDIS_PORT=$(REDIS_PORT)
+OPEN_PORTS:=$(OPEN_PORTS)"REDIS_PORT: $(REDIS_PORT)\n"
+
+COMPOSE_FILES:=$(COMPOSE_FILES) -f infra/docker-compose/*-redis.yml
+
+HELP:= $(HELP) "make up-redis - start redis container\n"
+up-redis:
+	$(COMPOSE) up -d redis

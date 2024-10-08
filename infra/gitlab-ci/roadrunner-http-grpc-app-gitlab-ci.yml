@@ -1,0 +1,599 @@
+---
+
+include:
+  - project: testonline/shared/ci-template
+    ref: 8.0.5
+    file: pipelines/docker-helm-pipeline.yml
+
+variables:
+  CHART_VERSION: $APP_CHART_VERSION
+
+stages:
+  - build
+  - checks
+  - release
+  - deploy
+  - spec-update
+  - createPackages
+  - push-infra
+  - undeploy
+
+.push-infra-template:
+  variables:
+    HOST: "https://gitlab.com"
+    TARGET_BRANCH: "main"
+    ASSIGN_MERGE_REQUEST_TO: 13452209
+    CI_PROJECT_ID: 46153295
+    SKIP_CLOSING_OLD_REQUESTS: 1
+  image: ${DOCKER_REGISTRY}/pharma-common-infra/runner:latest
+  script:
+#    - if [ "$SKIP_PUSH_INFRA" == "1" ]; then exit 0; fi
+    - export APP_NAME=$(make get-app-name)
+    - export INFRA_VERSION=$(make get-infra-version)
+    - export REF_NAME=${APP_NAME}-infra-on-${INFRA_VERSION}
+    - git config --global user.email "robot@test.tech"
+    - git config --global user.name "Infra Robot"
+    - make push-infra-pipeline
+    - php ./infra/mergeRequestOpener.php
+  tags:
+    - k8s
+    - ecom
+#    - test
+#    - docker
+
+
+.stan:
+  stage: checks
+  image:
+    name: ${DOCKER_REGISTRY}/${CI_PROJECT_NAME}:${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHORT_SHA}-checks
+    entrypoint: [ "" ]
+  script:
+    - cd /var/www
+    - php /var/www/vendor/bin/phpstan analyse src
+  tags:
+    - k8s
+    - ecom
+
+.fixer:
+  stage: checks
+  image:
+    name: ${DOCKER_REGISTRY}/${CI_PROJECT_NAME}:${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHORT_SHA}-checks
+    entrypoint: [ "" ]
+  script:
+    - cd /var/www
+    - php /var/www/vendor/bin/php-cs-fixer fix --dry-run --diff --verbose
+  tags:
+    - k8s
+    - ecom
+
+.tests:
+  stage: checks
+  services:
+    - name: harbor.dev.ecom.corp/dockerhub/library/postgres:14
+      alias: test-db
+      variables:
+        POSTGRES_DB: application_test
+        POSTGRES_USER: postgres
+        POSTGRES_PASSWORD: root
+  image:
+    name: ${DOCKER_REGISTRY}/${CI_PROJECT_NAME}:${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHORT_SHA}-checks
+    entrypoint: [ "" ]
+  script:
+    - cd /var/www
+    - php /var/www/vendor/bin/phpunit --coverage-text --coverage-cobertura=coverage.cobertura.xml --log-junit tests.xml /var/www/tests
+  variables:
+  artifacts:
+    when: always
+    paths:
+      - /var/www/tests.xml
+    reports:
+      junit: /var/www/tests.xml
+      coverage_report:
+        coverage_format: cobertura
+        path: /var/www/coverage.cobertura.xml
+  tags:
+    - k8s
+    - ecom
+
+tests-REVIEW:
+  extends:
+    - .tests
+    - .only-REVIEW
+  image:
+    name: ${DOCKER_REGISTRY}/${CI_PROJECT_NAME}:${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHORT_SHA}-checks
+  when: always
+  needs:
+    - build-image-for-checks-REVIEW
+
+stan-REVIEW:
+  extends:
+    - .stan
+    - .only-REVIEW
+  image:
+    name: ${DOCKER_REGISTRY}/${CI_PROJECT_NAME}:${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHORT_SHA}-checks
+  when: always
+  needs:
+    - build-image-for-checks-REVIEW
+
+fixer-REVIEW:
+  extends:
+    - .fixer
+    - .only-REVIEW
+  image:
+    name: ${DOCKER_REGISTRY}/${CI_PROJECT_NAME}:${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHORT_SHA}-checks
+  when: always
+  needs:
+    - build-image-for-checks-REVIEW
+
+tests-UAT:
+  extends:
+    - .tests
+    - .only-UAT
+  image:
+    name: ${DOCKER_REGISTRY}/${CI_PROJECT_NAME}:${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHORT_SHA}-checks
+  when: always
+  needs:
+    - build-image-for-checks-UAT
+
+tests-DEV:
+  extends:
+    - .tests
+    - .only-DEV
+  image:
+    name: ${DOCKER_REGISTRY}/${CI_PROJECT_NAME}:${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHORT_SHA}-checks
+  when: always
+  needs:
+    - build-image-for-checks-DEV
+
+stan-DEV:
+  extends:
+    - .stan
+    - .only-DEV
+  image:
+    name: ${DOCKER_REGISTRY}/${CI_PROJECT_NAME}:${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHORT_SHA}-checks
+  when: always
+  needs:
+    - build-image-for-checks-DEV
+
+fixer-DEV:
+  extends:
+    - .fixer
+    - .only-DEV
+  image:
+    name: ${DOCKER_REGISTRY}/${CI_PROJECT_NAME}:${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHORT_SHA}-checks
+  when: always
+  needs:
+    - build-image-for-checks-DEV
+
+tests-PROD:
+  extends:
+    - .tests
+    - .only-PRODUCTION
+  image:
+    name: ${DOCKER_REGISTRY}/${CI_PROJECT_NAME}:${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHORT_SHA}-checks
+  when: always
+  needs:
+    - build-image-for-checks-PROD
+
+stan-PROD:
+  extends:
+    - .stan
+    - .only-PRODUCTION
+  image:
+    name: ${DOCKER_REGISTRY}/${CI_PROJECT_NAME}:${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHORT_SHA}-checks
+  when: always
+  needs:
+    - build-image-for-checks-PROD
+
+fixer-PROD:
+  extends:
+    - .fixer
+    - .only-PRODUCTION
+  image:
+    name: ${DOCKER_REGISTRY}/${CI_PROJECT_NAME}:${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHORT_SHA}-checks
+  when: always
+  needs:
+    - build-image-for-checks-PROD
+
+
+.PhpClientCreate:
+  image:
+    name: ${DOCKER_REGISTRY}/pharma-common-infra/runner:latest
+    entrypoint: [""]
+  before_script:
+    - git config --global user.email "our@email.com"
+    - git config --global user.name "Gitlab Runner"
+    - echo ${CONTRACT_REPOSITORY}
+    - git clone ${CONTRACT_REPOSITORY} contractToPush
+    - cd contractToPush && git checkout -B ${WHERE_TO_CHECKOUT} && cd ../
+    - rm -rf contractToPush/*
+    - mkdir -p contractToPush/php
+    - cp -r app/phpGenerated/* contractToPush/php
+    - rm -rf contractToPush/php/*/*/v*/AbstractEndpoints
+    - rm -rf contractToPush/php/*/*/v*/InnerGrpcControllers
+    - cp contractsMeta/composer.json contractToPush/composer.json
+    - cd contractToPush
+    - ls -la
+    - git add .
+    - git commit -m "$(git log -1 --pretty=%B)" || echo "No changes to commit"
+  variables:
+    WHERE_TO_CHECKOUT: main
+    COMPOSER_REGISTRY_ADDRESS: "https://gitlab.com/api/v4/projects/${CONTRACT_PROJECT_ID}/packages/composer?access_token=${INFRA_PUSH_TOKEN}"
+  tags:
+    - k8s
+    - ecom
+
+REVIEW-ClientCreate:
+  stage: createPackages
+  variables:
+    WHERE_TO_CHECKOUT: ${CI_MERGE_REQUEST_SOURCE_BRANCH_NAME}
+  extends:
+    - .PhpClientCreate
+    - .only-REVIEW
+  needs:
+    - deploy-review
+  script:
+    - git push --force -u origin ${WHERE_TO_CHECKOUT}
+    - curl -sS --show-error --fail --data branch=${CI_MERGE_REQUEST_SOURCE_BRANCH_NAME} ${COMPOSER_REGISTRY_ADDRESS}
+
+
+.only-DEV:
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+\-dev$/'
+      when: always
+    - when: never
+
+
+.only-DEV-manual:
+  rules:
+    - if: '$CI_COMMIT_REF_NAME=="main"'
+      when: manual
+
+#.everywhere:
+#  rules:
+#    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" || $CI_PIPELINE_SOURCE != "schedule"'
+#
+.only-REVIEW:
+  only:
+    - merge_requests
+#  rules:
+#    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+#
+#.only-REVIEW-manual:
+#  rules:
+#    - if: '$CI_MERGE_REQUEST_ID && $CI_PIPELINE_SOURCE != "schedule"'
+#      when: manual
+#  only:
+#    - merge_requests
+
+#.only-PREPROD:
+#  only:
+#    - /^\d+\.\d+\.\d+\-preprod\-.+$/
+
+#.only-PREPROD-manual:
+#  only:
+#    - /^\d+\.\d+\.\d+\-preprod\-.+$/
+#  when: manual
+
+#.only-PRODUCTION-BUILD:
+#  only:
+#    - /^v\d+\.\d+\.\d+(\-\w+|)$/
+
+
+.only-UAT:
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+\-uat$/'
+      when: always
+    - when: never
+
+.only-PRODUCTION:
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/'
+      when: always
+    - when: never
+#  only:
+#    - /^v\d+\.\d+\.\d+$/
+
+#.only-SANDBOX:
+#  only:
+#    - /^v\d+\.\d+\.\d+(\-\w+|)$/
+
+#.only-PRODUCTION-force-upgrade:
+#  rules:
+#    - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+(\-\w+|)$/'
+#      when: manual
+
+#.only-SANDBOX-force-upgrade:
+#  rules:
+#    - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+(\-\w+|)$/'
+#      when: manual
+
+#PRODUCTION-ClientCreate:
+#  stage: createPackages
+#  extends:
+#    - .PhpClientCreate
+#    - .only-PRODUCTION
+#  script:
+#    - git push -u origin ${WHERE_TO_CHECKOUT}
+#    - git tag ${CI_COMMIT_TAG}
+#    - git push --tags
+#    - curl -sS --show-error --fail --data tag=${CI_COMMIT_TAG} ${COMPOSER_REGISTRY_ADDRESS}
+
+##push-infra-manual:
+#  stage: connect
+#  extends:
+#    - .push-infra-template
+#    - .only-DEV-manual
+
+
+.build-app:
+  stage: build
+  image:
+    name: gcr.io/kaniko-project/executor:v1.9.1-debug
+    entrypoint: [""]
+  variables:
+    DOCKER_TARGET: application
+    DOCKER_FILE: infra/images/php8/Dockerfile
+    BUILD_CONTEXT: ${CI_PROJECT_DIR}
+    BUILD_EXTRA_ARGS: --build-arg COMPOSER_KEY=${INFRA_PUSH_TOKEN}
+  extends:
+    - .build-image-kaniko
+  before_script:
+    - echo "$ECOM_CA_CERT" >> /kaniko/ssl/certs/ca-certificates.crt
+  tags:
+    - k8s
+    - ecom
+
+build-image-review:
+  extends:
+    - .build-app
+    - .only-REVIEW
+  when: manual
+
+build-image-dev:
+  extends:
+    - .build-app
+    - .only-DEV
+
+build-image-PROD:
+  variables:
+    BUILD_IMAGE: ${DOCKER_REGISTRY}/${CI_PROJECT_NAME}:${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHORT_SHA}
+  extends:
+    - .build-app
+    - .only-PRODUCTION
+
+build-image-uat:
+  variables:
+    BUILD_IMAGE: ${DOCKER_REGISTRY}/${CI_PROJECT_NAME}:${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHORT_SHA}
+  extends:
+    - .build-app
+    - .only-UAT
+
+build-image-for-checks-REVIEW:
+  extends:
+    - .build-app
+    - .only-REVIEW
+  variables:
+    DOCKER_TARGET: checks
+    VERSION: ${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHORT_SHA}-checks
+    BUILD_IMAGE: ${DOCKER_REGISTRY}/${CI_PROJECT_NAME}:${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHORT_SHA}-checks
+  when: always
+
+build-image-for-checks-DEV:
+  extends:
+    - .build-app
+    - .only-DEV
+  variables:
+    DOCKER_TARGET: checks
+    VERSION: ${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHORT_SHA}-checks
+    BUILD_IMAGE: ${DOCKER_REGISTRY}/${CI_PROJECT_NAME}:${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHORT_SHA}-checks
+  when: always
+
+build-image-for-checks-UAT:
+  extends:
+    - .build-app
+    - .only-UAT
+  variables:
+    DOCKER_TARGET: checks
+    VERSION: ${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHORT_SHA}-checks
+    BUILD_IMAGE: ${DOCKER_REGISTRY}/${CI_PROJECT_NAME}:${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHORT_SHA}-checks
+  when: always
+
+
+build-image-for-checks-PROD:
+  extends:
+    - .build-app
+    - .only-PRODUCTION
+  variables:
+    DOCKER_TARGET: checks
+    VERSION: ${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHORT_SHA}-checks
+    BUILD_IMAGE: ${DOCKER_REGISTRY}/${CI_PROJECT_NAME}:${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHORT_SHA}-checks
+  when: always
+
+#clear-namespace:
+#  stage: build
+#  environment:
+##    name: ${DELETABLE_NAMESPACE}
+#    name: uat
+#  extends:
+#    - .helm-common-deploy
+#    - .only-DEV-manual
+#  script:
+#    - kubectl get namespace
+#    - kubectl delete namespace ${CI_PROJECT_NAME}-${DELETABLE_NAMESPACE} || true
+#  tags:
+#    - k8s-small
+#    - ecom
+#  allow_failure: true
+
+#clear-istio:
+#  stage: build
+#  environment:
+##    name: ${DELETABLE_NAMESPACE}
+#    name: uat
+#  extends:
+#    - .helm-common-deploy
+#    - .only-DEV-manual
+#  script:
+##    - kubectl get namespace
+##    - kubectl delete namespace ${CI_PROJECT_NAME}-${DELETABLE_NAMESPACE} || true
+#    - kubectl get -n istio-ingress virtualservice
+#    - kubectl get -n istio-ingress gateway
+#    - kubectl ${KUBECOMMAND} || true
+#  tags:
+#    - k8s-small
+#    - ecom
+#  allow_failure: true
+
+deploy-DEV:
+  stage: deploy
+  environment:
+    name: dev
+  needs:
+    - build-image-dev
+    - tests-DEV
+    - stan-DEV
+    - fixer-DEV
+  variables:
+    ENVIRONMENT: "dev"
+    PROTOCOL: https
+    HELM_EXTRA_ARGS: "--set appName=${CI_PROJECT_NAME} \
+      --set ingress.custom.domain=${CI_PROJECT_NAME}.k8s.dev.${DEPLOY_DOMAIN} \
+      --set istio.ingress.custom.domain=${CI_PROJECT_NAME}.k8s.dev.${DEPLOY_DOMAIN} \
+      --set istio.debugIngress.custom.domain=${CI_PROJECT_NAME}-debug.k8s.dev.${DEPLOY_DOMAIN} \
+      --set istio.grpc.custom.domain=${CI_PROJECT_NAME}-grpc.k8s.dev.${DEPLOY_DOMAIN} ${FIRST_DEPLOY_PARAMS}"
+  tags:
+    - k8s-small
+    - ecom
+  extends:
+    - .helm-common-deploy
+    - .only-DEV
+  after_script:
+    - !reference [.notify, teams]
+
+deploy-UAT:
+  stage: deploy
+  environment:
+    name: uat
+  needs:
+    - build-image-uat
+    - tests-UAT
+# I think we dont need to run fixers and stan checks on uat. Only tests.
+#    - stan-UAT
+#    - fixer-UAT
+  variables:
+    APP_VERSION: ${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHORT_SHA}
+    ENVIRONMENT: "uat"
+    PROTOCOL: https
+    HELM_EXTRA_ARGS: "--set appName=${CI_PROJECT_NAME} \
+      --set ingress.custom.domain=${CI_PROJECT_NAME}.k8s.uat.${DEPLOY_DOMAIN} \
+      --set istio.ingress.custom.domain=${CI_PROJECT_NAME}.k8s.uat.${DEPLOY_DOMAIN} \
+      --set istio.debugIngress.custom.domain=${CI_PROJECT_NAME}-debug.k8s.uat.${DEPLOY_DOMAIN} \
+      --set istio.grpc.custom.domain=${CI_PROJECT_NAME}-grpc.k8s.uat.${DEPLOY_DOMAIN} ${FIRST_DEPLOY_PARAMS}"
+  tags:
+    - k8s-small
+    - ecom
+  extends:
+    - .helm-common-deploy
+    - .only-UAT
+  after_script:
+    - !reference [.notify, teams]
+
+release-PROD:
+  stage: release
+  extends:
+    - .only-PRODUCTION
+    - .tag-image
+  variables:
+    TAG: release-${CI_COMMIT_SHORT_SHA}
+    BUILD_IMAGE: ${DOCKER_REGISTRY}/${CI_PROJECT_NAME}:${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHORT_SHA}
+  tags:
+    - k8s
+    - ecom
+  needs:
+    - build-image-PROD
+
+
+deploy-prod:
+  stage: deploy
+  environment:
+    name: prod
+  needs:
+    - release-PROD
+    - build-image-PROD
+    - tests-PROD
+    - stan-PROD
+    - fixer-PROD
+  variables:
+    APP_VERSION: release-${CI_COMMIT_SHORT_SHA}
+    MS_TEAMS_CHANNEL_WEBHOOK: ${MS_TEAMS_CHANNEL_WEBHOOK_PROD}
+    VAULT_AUTH_ROLE: ${CI_PROJECT_NAME}-protected # надо проверить что это
+    ENVIRONMENT: "prod"
+    PROTOCOL: https
+    HELM_EXTRA_ARGS: "--set appName=${CI_PROJECT_NAME} \
+        --set ingress.custom.domain=${CI_PROJECT_NAME}.k8s.prod.${DEPLOY_DOMAIN} \
+        --set istio.ingress.custom.domain=${CI_PROJECT_NAME}.k8s.prod.${DEPLOY_DOMAIN} \
+        --set istio.debugIngress.custom.domain=${CI_PROJECT_NAME}-debug.k8s.prod.${DEPLOY_DOMAIN} \
+        --set istio.grpc.custom.domain=${CI_PROJECT_NAME}-grpc.k8s.prod.${DEPLOY_DOMAIN}"
+  tags:
+    - k8s-small
+    - ecom
+  extends:
+    - .helm-common-deploy
+    - .only-PRODUCTION
+  after_script:
+    - !reference [.notify, teams]
+    - !reference [.notify, telegram]
+    - !reference [.notify, grafana]
+
+
+stop_review:
+  stage: undeploy
+  extends:
+    - .stop_review
+    - .only-REVIEW
+  tags:
+    - k8s-small
+    - ecom
+  except:
+  when: manual
+
+deploy-review:
+  stage: deploy
+  needs:
+    - build-image-review
+  tags:
+    - k8s-small
+    - ecom
+  extends:
+    - .review
+    - .only-REVIEW
+  environment:
+    name: ${CI_COMMIT_REF_SLUG}
+  variables:
+    ENVIRONMENT: "dev"
+    PGSQL_INIT: "true"
+    PROTOCOL: https
+    HELM_EXTRA_ARGS: "--values=.cicd/deploy/helm-envs/dynamic.yaml \
+      --set appName=${CI_PROJECT_NAME} \
+      --set ingress.custom.domain=${DEPLOY_NAMESPACE}.${CI_PROJECT_NAME}.k8s.dev.${DEPLOY_DOMAIN} \
+      --set istio.grpc.custom.domain=${DEPLOY_NAMESPACE}.${CI_PROJECT_NAME}-grpc.k8s.dev.${DEPLOY_DOMAIN} \
+      --set istio.debugIngress.custom.domain=${DEPLOY_NAMESPACE}.${CI_PROJECT_NAME}-debug.k8s.dev.${DEPLOY_DOMAIN} \
+      --set istio.ingress.custom.domain=${DEPLOY_NAMESPACE}.${CI_PROJECT_NAME}.k8s.dev.${DEPLOY_DOMAIN}"
+
+  after_script:
+    - !reference [.notify, teams]
+
+
+.runner:k8s-tags-small:
+  tags:
+    - k8s-small
+    - $DOMAIN
+
+spec-update:
+  extends:
+    - .runner:k8s-tags-small
+    - .spec-update:go
+  only:
+    variables:
+      - $CI_COMMIT_REF_PROTECTED == "true"

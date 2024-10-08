@@ -1,0 +1,23 @@
+POSTGRES_PORT:=$(shell echo ${PORT_NUMBER_MODIFIER}+5432 | bc)
+POSTGRES_TEST_PORT:=$(shell echo ${PORT_NUMBER_MODIFIER}+6432 | bc)
+VARIABLES:=$(VARIABLES) POSTGRES_PORT=$(POSTGRES_PORT)
+VARIABLES:=$(VARIABLES) POSTGRES_TEST_PORT=$(POSTGRES_TEST_PORT)
+OPEN_PORTS:=$(OPEN_PORTS)"POSTGRES_PORT: $(POSTGRES_PORT)\n"
+OPEN_PORTS:=$(OPEN_PORTS)"POSTGRES_TEST_PORT: $(POSTGRES_TEST_PORT)\n"
+
+COMPOSE_FILES:=$(COMPOSE_FILES) -f infra/docker-compose/*-postgres.15.db.yml
+
+
+HELP:= $(HELP) "make up-db - Starts the postgres database container\n"
+up-db:
+	$(COMPOSE) up -d db
+	sleep 5
+
+HELP:= $(HELP) "make up-test-db - Starts the postgres for tests database container\n"
+up-test-db:
+	$(COMPOSE) up -d test-db
+	sleep 5
+
+HELP:= $(HELP) "make down-test-db - Stops the postgres-tests database container\n"
+down-test-db:
+	$(COMPOSE) rm -s -v -f test-db

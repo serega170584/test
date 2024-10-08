@@ -1,0 +1,40 @@
+replicaCount: 1
+
+env:
+  URL_ADDRESS: test"
+  URL_CONNECT_TIMEOUT: 10
+  URL_TIMEOUT: 5
+  API_PASSWORD: [STORE_IN_VAULT]
+  APP_ENV: dev
+  APP_DEBUG: false
+
+migrations:
+  command:
+    - bash
+    - -c
+    - |
+      "make migrate-native"
+
+resources:
+  limits:
+    memory: "500Mi"
+    cpu: null
+  requests:
+    memory: "500Mi"
+    cpu: "500m"
+
+cronjobs:
+  - schedule: "0 0 * * *" # utc time!
+    enabled: true
+    name: "url-virtual-groups-import"
+    command:
+      - sh
+      - -c
+      - "exec php bin/console app:url-virtual-groups-import --import_only_virtual_groups"
+    resources:
+      limits:
+        memory: "500Mi"
+        cpu: "200m"
+      requests:
+        memory: "500Mi"
+        cpu: "200m"

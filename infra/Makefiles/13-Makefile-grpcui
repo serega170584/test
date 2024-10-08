@@ -1,0 +1,6 @@
+grpcui:
+	grpcui $$(find app/proto -type f -print | sed 's|^\(.*\/\.*\)|-proto \1|' | paste -d -s -) -plaintext 0.0.0.0:$(GRPC_APP_PORT)
+
+
+grpcui-dev:
+	grpcui $$(find app/proto -type f -print | sed 's|^\(.*\/\.*\)|-proto \1|' | paste -d -s -) -plaintext $(PROJECT_NAME)-grpc.k8s.dev.ecom.corp:443

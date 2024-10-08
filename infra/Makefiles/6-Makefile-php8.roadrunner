@@ -1,0 +1,39 @@
+COMPOSE_FILES:=$(COMPOSE_FILES) -f infra/docker-compose/*-php8.roadrunner-common.yml
+
+TRANSPORT_KAFKA_TOPIC_NAMES:=$(PROJECT_NAME)-test
+TRANSPORT_KAFKA_GROUPNAME:=$(PROJECT_NAME)-group
+
+HTTP_APP_PORT:=$(shell echo ${PORT_NUMBER_MODIFIER}+8080 | bc)
+GRPC_APP_PORT:=$(shell echo ${PORT_NUMBER_MODIFIER}+9090 | bc)
+RPC_APP_PORT:=$(shell echo ${PORT_NUMBER_MODIFIER}+6001 | bc)
+METRICS_PORT:=$(shell echo ${PORT_NUMBER_MODIFIER}+2112 | bc)
+STATUS_PORT:=$(shell echo ${PORT_NUMBER_MODIFIER}+1114 | bc)
+TRANSPORT_KAFKA:=kafka:9092
+
+VARIABLES:= $(VARIABLES) HTTP_APP_PORT=$(HTTP_APP_PORT) GRPC_APP_PORT=$(GRPC_APP_PORT) RPC_APP_PORT=$(RPC_APP_PORT)
+VARIABLES:= $(VARIABLES) METRICS_PORT=$(METRICS_PORT) STATUS_PORT=$(STATUS_PORT)
+VARIABLES:= $(VARIABLES) LOG_LEVEL=debug
+VARIABLES:= $(VARIABLES) TRANSPORT_KAFKA_TOPIC_NAMES=$(TRANSPORT_KAFKA_TOPIC_NAMES)
+VARIABLES:= $(VARIABLES) TRANSPORT_KAFKA_GROUPNAME=$(TRANSPORT_KAFKA_GROUPNAME)
+VARIABLES:= $(VARIABLES) TRANSPORT_KAFKA=$(TRANSPORT_KAFKA)
+
+OPEN_PORTS:=$(OPEN_PORTS)"HTTP_APP_PORT: $(HTTP_APP_PORT)\n"
+OPEN_PORTS:=$(OPEN_PORTS)"GRPC_APP_PORT: $(GRPC_APP_PORT)\n"
+OPEN_PORTS:=$(OPEN_PORTS)"RPC_APP_PORT: $(RPC_APP_PORT)\n"
+OPEN_PORTS:=$(OPEN_PORTS)"METRICS_PORT: $(METRICS_PORT)\n"
+OPEN_PORTS:=$(OPEN_PORTS)"STATUS_PORT: $(STATUS_PORT)\n"
+
+HELP:=$(HELP) "make up-rr - Starts roadrunner\n"
+up-rr:
+	make prepare-rr-conf
+	#$(COMPOSE) up -d rr
+	$(COMPOSE) up rr
+
+prepare-rr-conf:
+	$(COMPOSE) run --rm --entrypoint bash php-cli -i -c "yq eval-all '. as \$$item ireduce ({}; . * \$$item)' /tmp/roadrunner/* /var/www/.rr.custom.yaml > /var/www/.rr.yaml"
+
+HELP:=$(HELP) "make up-rr-xdebug - Starts roadrunner with xdebug\n"
+up-rr-xdebug:
+	make prepare-rr-conf
+	#$(COMPOSE) up -d rr-xdebug
+	$(COMPOSE) up rr-xdebug

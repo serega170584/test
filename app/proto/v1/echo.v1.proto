@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package echo.v1;
+option go_package="/shop_groups_contracts_v1";
+
+option php_namespace = "ShopGroups\\EchoService\\v1";
+option php_metadata_namespace = "ShopGroups\\EchoService\\v1\\Meta";
+
+service EchoService {
+  rpc EchoMethod (EchoRequest) returns (EchoResponse) {}
+}
+
+message EchoRequest {
+  string Message = 1;
+}
+
+message EchoResponse {
+  string Message = 1;
+}

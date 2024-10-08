@@ -1,0 +1,33 @@
+ifeq ($(IMAGE_VERSION),)
+	IMAGE_VERSION:=v3.0.3
+endif
+
+HELP:="Welcome to Makefile. \n"
+
+HELP:="You can call commands below:\n"
+
+ifeq ($(PORT_NUMBER_MODIFIER),)
+	PORT_NUMBER_MODIFIER:=1
+endif
+
+CURRENT_UID := $(shell id -u)
+CURRENT_GID := $(shell id -g)
+
+ifeq ($(DOCKER_COMPOSE_EXECUTABLE),)
+	DOCKER_COMPOSE_EXECUTABLE := "docker-compose"
+endif
+SHELL := /bin/bash
+
+VARIABLES:= export
+
+#### base docker compose files
+#COMPOSE_FILES:=-f infra/docker-compose/*-traefik.network.yml
+####
+
+OPEN_PORTS:="Below:\n"
+
+get-app-name:
+	@echo $(PROJECT_NAME)
+
+get-infra-version:
+	@echo $(INFRA_VERSION)

@@ -1,0 +1,10 @@
+KAFKA_UI_PORT:=$(shell echo ${PORT_NUMBER_MODIFIER}+7070 | bc)
+VARIABLES:=$(VARIABLES) KAFKA_UI_PORT=$(KAFKA_UI_PORT)
+OPEN_PORTS:=$(OPEN_PORTS)"KAFKA_UI_PORT: $(KAFKA_UI_PORT)\n"
+
+COMPOSE_FILES:=$(COMPOSE_FILES) -f infra/docker-compose/*-kafka.yml
+
+HELP:= $(HELP) "make up-kafka-infra - start kafka containers\n"
+up-kafka-infra:
+	$(COMPOSE) up -d kafka-ui kafka
+	make show-ports

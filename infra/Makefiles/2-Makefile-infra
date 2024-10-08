@@ -1,0 +1,56 @@
+VARIABLES:=$(VARIABLES) INFRA_VERSION=$(INFRA_VERSION)
+
+clone-infra-repo-local:
+	git clone git@gitlab.test:git infra-tmp-dir
+
+prepare-infra-and-push:
+	cd infra-tmp-dir && git checkout $(INFRA_VERSION)
+	mkdir -p infra-tmp-dir/projects
+	rm -rf infra-tmp-dir/projects/$(PROJECT_NAME)
+	cp -r -P infra/projects/$(PROJECT_NAME) infra-tmp-dir/projects/$(PROJECT_NAME)
+	cd infra-tmp-dir && php removeProjectFilesByProject.php
+	rsync --no-perms -a --exclude infra/projects infra/ infra-tmp-dir
+	rm -rf infra-tmp-dir/projects/$(PROJECT_NAME)/.gitlab-ci.yml #gitlab ci synchs additionally
+	cp .gitlab-ci.yml infra-tmp-dir/projects/$(PROJECT_NAME)/.gitlab-ci.yml #gitlab ci synchs additionally
+	chmod -R 777 infra-tmp-dir
+	cd infra-tmp-dir && git checkout -B $(PROJECT_NAME)-infra-on-${INFRA_VERSION}
+	cd infra-tmp-dir && git add . && git commit -m "preparing infra to push from $(PROJECT_NAME)" || true
+	cd infra-tmp-dir && git remote -v
+	cd infra-tmp-dir && echo $(PROJECT_NAME)-infra-on-$(INFRA_VERSION)
+	cd infra-tmp-dir && git push --force -u origin $(PROJECT_NAME)-infra-on-$(INFRA_VERSION)
+	rm -rf infra-tmp-dir
+
+push-infra:
+	rm -rf infra-tmp-dir
+	make clone-infra-repo-local
+	make prepare-infra-and-push
+
+link:
+	php infra/linkCreator.php
+
+push-infra-pipeline:
+	make clone-infra-repo-pipeline
+	make prepare-infra-and-push
+
+clone-infra-repo-pipeline:
+	git clone git infra-tmp-dir
+
+up-grpc-xdebug:
+	make up-db migrate-fresh-and-seed up-rr-grpc-xdebug
+
+up-grpc:
+	make up-db migrate-fresh-and-seed up-rr-grpc
+
+up-http-xdebug:
+	make up-db migrate-fresh-and-seed up-rr-http-xdebug
+
+up-http:
+	make up-db migrate-fresh-and-seed up-rr-http
+
+build-builder:
+	#docker build --build-arg COMPOSER_KEY="" -t $(PROJECT_NAME)-builder --target builder -f infra/images/php8/Dockerfile .
+	docker build --build-arg COMPOSER_KEY="" -t $(PROJECT_NAME)-builder --target application -f infra/images/php8/Dockerfile .
+
+HELP:="make create-link-to-common-values - Create link common.yaml to basic helm yaml file. File should be in infra/values. \n   Usage: make YAML_FILE=simple-roadrunner-app.yaml create-link-to-common-values\n"
+create-link-to-common-values:
+	ln -s ../../../infra/values/$(YAML_FILE) .cicd/deploy/helm-envs/common.yaml

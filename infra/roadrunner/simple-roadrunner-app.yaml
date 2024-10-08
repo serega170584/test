@@ -1,0 +1,97 @@
+version: "3"
+
+server:
+  command: "php public/index.php"
+  env:
+    APP_RUNTIME: Baldinof\RoadRunnerBundle\Runtime\Runtime
+    STOP_AFTER_REQUEST: ${RR_DEBUG_MODE_ENABLED}
+
+rpc:
+  listen: tcp://0.0.0.0:${RPC_APP_PORT}
+
+http:
+  address: 0.0.0.0:${HTTP_APP_PORT}
+  pool:
+    debug: ${RR_DEBUG_MODE_ENABLED} # благодаря этой настройке создание воркера происходит при совершении запроса
+    num_workers: 3
+    max_jobs: 32
+  middleware: [ "static" ]
+  static:
+    dir: "/var/www/public"
+    forbid: [ ".php" ]
+#    calculate_etag: false
+#    weak: false
+    allow: [ ".css", ".js", ".png" ]
+#    request:
+#      input: "custom-header"
+#    response:
+#      output: "output-header"
+
+grpc:
+  listen: "tcp://0.0.0.0:${GRPC_APP_PORT}"
+  timeout: 200s
+  pool:
+    debug: ${RR_DEBUG_MODE_ENABLED} # благодаря этой настройке создание воркера происходит при совершении запроса
+    num_workers: 3
+    max_jobs: 32
+  #    reset_timeout: 1s
+  ##    destroy_timeout: 1s
+
+metrics:
+  address: 0.0.0.0:${METRICS_PORT}
+
+  collect:
+    shop_group_failed_message_counter:
+      type: gauge
+      help: "Подсчет сообщений, у которых есть ошибка"
+
+
+status:
+  address: 0.0.0.0:${STATUS_PORT} # k8s probes
+
+logs:
+#  encoding: json
+  level: ${LOG_LEVEL}
+  mode: development
+  channels:
+    grpc:
+      encoding: json
+      mode: raw
+    jobs:
+      level: ${LOG_LEVEL}
+      encoding: json
+      mode: raw
+    http:
+      encoding: json
+      level: ${LOG_LEVEL} # Log all http requests, set to info to disable
+      mode: raw
+    server:
+      encoding: console
+      level: ${LOG_LEVEL} # Everything written to worker stderr is logged
+      mode: raw
+    metrics:
+      encoding: json
+      level: ${LOG_LEVEL}
+#      mode: raw
+#kafka:
+#  brokers:
+#    - ${TRANSPORT_KAFKA}
+
+#jobs:
+#  pipeline_size: 100000
+#  consume: ["kafka-pipe"]
+#  pool:
+#    debug: ${RR_DEBUG_MODE_ENABLED}
+#    allocate_timeout: 30s
+#    destroy_timeout: 30s
+#  pipelines:
+#    kafka-pipe:
+#      driver: kafka
+#      config:
+#        auto_create_topics_enable: true
+#        priority: 1
+#        consumer_options:
+#          topics:
+#            - ${TRANSPORT_KAFKA_TOPIC_NAMES}
+#        group_options:
+#          group_id: ${TRANSPORT_KAFKA_GROUPNAME}
